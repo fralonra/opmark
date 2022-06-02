@@ -49,6 +49,8 @@ You can make lists:
 [Github](https://github.com/)
 ```
 
+_WARN_: `OpMark` uses different codes for EOL(end of line/line break) in different systems: `\r\n`(CRLF) in Windows, `\n`(LF) in others.
+
 ### Using the parser
 
 ```rust
