@@ -102,9 +102,9 @@ impl Parser {
 
     /// ``code``
     fn code(&mut self) -> Option<Mark> {
-        if self.s.starts_with("`") {
+        if self.s.starts_with('`') {
             let this_line = &self.s[..self.s.find(LINE_ENDING).unwrap_or_else(|| self.s.len())];
-            if let Some(end) = this_line[1..].find("`") {
+            if let Some(end) = this_line[1..].find('`') {
                 let text = this_line[1..end + 1].to_owned();
                 self.s = self.s[end + 3..].to_owned();
                 return Some(Mark::Text(text, StyleText::new().with_code()));
@@ -136,7 +136,7 @@ impl Parser {
 
     /// `# Heading`
     fn heading(&mut self) -> Option<Mark> {
-        if self.s.starts_with("#") {
+        if self.s.starts_with('#') {
             let line_end = self.s.find(LINE_ENDING).unwrap_or_else(|| self.s.len());
             let this_line = &self.s[..line_end];
             if this_line.len() > 2 {
@@ -166,7 +166,7 @@ impl Parser {
 
     /// `<url>`, `[title](url)`
     fn hyperlink(&mut self) -> Option<Mark> {
-        if self.s.starts_with("<") {
+        if self.s.starts_with('<') {
             let this_line = &self.s[..self.s.find(LINE_ENDING).unwrap_or_else(|| self.s.len())];
             if let Some(angle_end) = this_line.find('>') {
                 let url = this_line[1..angle_end].to_owned();
@@ -178,7 +178,7 @@ impl Parser {
                 ));
             }
         }
-        if self.s.starts_with("[") {
+        if self.s.starts_with('[') {
             let this_line = &self.s[..self.s.find(LINE_ENDING).unwrap_or_else(|| self.s.len())];
             if let Some(bracket_end) = this_line.find(']') {
                 if this_line[bracket_end + 1..].starts_with('(') {
