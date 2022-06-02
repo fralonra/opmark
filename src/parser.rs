@@ -5,6 +5,11 @@ use crate::mark::{
 };
 use std::collections::HashMap;
 
+#[cfg(windows)]
+const LINE_ENDING: &'static str = "\r\n";
+#[cfg(not(windows))]
+const LINE_ENDING: &'static str = "\n";
+
 /// Parser for OpMark.
 #[derive(Debug, Default)]
 pub struct Parser {
@@ -98,7 +103,7 @@ impl Parser {
     /// ``code``
     fn code(&mut self) -> Option<Mark> {
         if self.s.starts_with("`") {
-            let this_line = &self.s[..self.s.find("\n").unwrap_or_else(|| self.s.len())];
+            let this_line = &self.s[..self.s.find(LINE_ENDING).unwrap_or_else(|| self.s.len())];
             if let Some(end) = this_line[1..].find("`") {
                 let text = this_line[1..end + 1].to_owned();
                 self.s = self.s[end + 3..].to_owned();
@@ -113,8 +118,8 @@ impl Parser {
     /// ````
     fn code_block(&mut self) -> Option<Mark> {
         if self.s.starts_with("```") {
-            if let Some(cb_end) = self.s.find("\n```") {
-                let first_line_end = self.s.find('\n').unwrap_or_else(|| self.s.len());
+            if let Some(cb_end) = self.s.find(&format!("{}```", LINE_ENDING)) {
+                let first_line_end = self.s.find(LINE_ENDING).unwrap_or_else(|| self.s.len());
                 let first_line = self.s[3..first_line_end].to_owned();
                 let language = if first_line.len() > 0 {
                     Some(first_line)
@@ -132,7 +137,7 @@ impl Parser {
     /// `# Heading`
     fn heading(&mut self) -> Option<Mark> {
         if self.s.starts_with("#") {
-            let line_end = self.s.find("\n").unwrap_or_else(|| self.s.len());
+            let line_end = self.s.find(LINE_ENDING).unwrap_or_else(|| self.s.len());
             let this_line = &self.s[..line_end];
             if this_line.len() > 2 {
                 let mut idx = 1;
@@ -162,7 +167,7 @@ impl Parser {
     /// `<url>`, `[title](url)`
     fn hyperlink(&mut self) -> Option<Mark> {
         if self.s.starts_with("<") {
-            let this_line = &self.s[..self.s.find('\n').unwrap_or_else(|| self.s.len())];
+            let this_line = &self.s[..self.s.find(LINE_ENDING).unwrap_or_else(|| self.s.len())];
             if let Some(angle_end) = this_line.find('>') {
                 let url = this_line[1..angle_end].to_owned();
                 self.s = self.s[angle_end + 1..].to_owned();
@@ -174,7 +179,7 @@ impl Parser {
             }
         }
         if self.s.starts_with("[") {
-            let this_line = &self.s[..self.s.find('\n').unwrap_or_else(|| self.s.len())];
+            let this_line = &self.s[..self.s.find(LINE_ENDING).unwrap_or_else(|| self.s.len())];
             if let Some(bracket_end) = this_line.find(']') {
                 if this_line[bracket_end + 1..].starts_with('(') {
                     if let Some(parens_end) = this_line[bracket_end + 2..].find(')') {
@@ -194,7 +199,7 @@ impl Parser {
     /// `![title](src)<options>`
     fn image(&mut self) -> Option<Mark> {
         if self.s.starts_with("![") {
-            let this_line = &self.s[..self.s.find('\n').unwrap_or_else(|| self.s.len())];
+            let this_line = &self.s[..self.s.find(LINE_ENDING).unwrap_or_else(|| self.s.len())];
             if let Some(bracket_end) = this_line.find(']') {
                 if this_line[bracket_end + 1..].starts_with('(') {
                     if let Some(parens_end) = this_line[bracket_end + 2..].find(')') {
@@ -247,7 +252,7 @@ impl Parser {
 
     /// `1. ordered list`
     fn ordered_list(&mut self) -> Option<Mark> {
-        let line_end = self.s.find("\n").unwrap_or_else(|| self.s.len());
+        let line_end = self.s.find(LINE_ENDING).unwrap_or_else(|| self.s.len());
         let this_line = &self.s[..line_end];
         let indent_level = indent(this_line);
         let indent = (indent_level.to_int() * 2) as usize;
@@ -299,7 +304,7 @@ impl Parser {
     /// `> quote`
     fn quote(&mut self) -> Option<Mark> {
         if self.s.starts_with("> ") {
-            let line_end = self.s.find("\n").unwrap_or_else(|| self.s.len());
+            let line_end = self.s.find(LINE_ENDING).unwrap_or_else(|| self.s.len());
             let this_line = &self.s[..line_end];
             let text = this_line[2..].to_owned();
             self.s = self.s[line_end..].to_owned();
@@ -310,11 +315,11 @@ impl Parser {
     }
 
     fn separator(&mut self) -> Option<Mark> {
-        if let Some(rest) = self.s.strip_prefix("----\n") {
+        if let Some(rest) = self.s.strip_prefix(&format!("----{}", LINE_ENDING)) {
             self.s = rest.to_owned();
             return Some(Mark::Separator(SeparatorDir::Horizontal));
         }
-        if let Some(rest) = self.s.strip_prefix("----v\n") {
+        if let Some(rest) = self.s.strip_prefix(&format!("----v{}", LINE_ENDING)) {
             self.s = rest.to_owned();
             return Some(Mark::Separator(SeparatorDir::Vertical));
         }
@@ -324,7 +329,7 @@ impl Parser {
     /// `---t`, `---t1`
     fn transition(&mut self) -> Option<Mark> {
         if self.s.starts_with("---t") {
-            let this_line = &self.s[..self.s.find('\n').unwrap_or_else(|| self.s.len())];
+            let this_line = &self.s[..self.s.find(LINE_ENDING).unwrap_or_else(|| self.s.len())];
             let order = if this_line.len() > 4 {
                 let mut idx = 4;
                 let mut b = this_line.as_bytes()[idx];
@@ -353,7 +358,7 @@ impl Parser {
 
     /// `- unordered list`
     fn unordered_list(&mut self) -> Option<Mark> {
-        let line_end = self.s.find("\n").unwrap_or_else(|| self.s.len());
+        let line_end = self.s.find(LINE_ENDING).unwrap_or_else(|| self.s.len());
         let this_line = &self.s[..line_end];
         let indent_level = indent(this_line);
         let indent = (indent_level.to_int() * 2) as usize;
@@ -390,13 +395,13 @@ impl Iterator for Parser {
                 return None;
             }
 
-            if let Some(rest) = self.s.strip_prefix('\n') {
+            if let Some(rest) = self.s.strip_prefix(LINE_ENDING) {
                 self.s = rest.to_owned();
                 self.indent_level = 0;
                 self.is_line_start = true;
                 self.style_text = StyleText::new();
                 let is_empty = self.s.is_empty();
-                if self.s.starts_with('\n') || is_empty {
+                if self.s.starts_with(LINE_ENDING) || is_empty {
                     if !is_empty {
                         self.s = self.s[1..].to_owned();
                     }
@@ -409,7 +414,7 @@ impl Iterator for Parser {
             }
 
             if self.is_line_start {
-                if let Some(rest) = self.s.strip_prefix("---\n") {
+                if let Some(rest) = self.s.strip_prefix(&format!("---{}", LINE_ENDING)) {
                     self.s = rest.to_owned();
                     self.transition_order = 0;
                     return Some(Mark::Page(vec![]));
@@ -419,7 +424,7 @@ impl Iterator for Parser {
                     return Some(mark);
                 }
 
-                if let Some(rest) = self.s.strip_prefix("t---\n") {
+                if let Some(rest) = self.s.strip_prefix(&format!("t---{}", LINE_ENDING)) {
                     self.s = rest.to_owned();
                     return Some(Mark::TransitionEnd);
                 }
@@ -511,8 +516,13 @@ impl Iterator for Parser {
 
             let end = self
                 .s
-                .find(&['*', '`', '~', '_', '/', '$', '^', '\\', '<', '[', '\n'][..])
+                .find(&['*', '`', '~', '_', '/', '$', '^', '\\', '<', '['][..])
                 .map_or_else(|| self.s.len(), |special| special.max(1));
+            let line_end = self
+                .s
+                .find(LINE_ENDING)
+                .map_or_else(|| self.s.len(), |special| special.max(1));
+            let end = if end < line_end { end } else { line_end };
             let text = Mark::Text(self.s[..end].to_owned(), self.style_text.clone());
             self.s = self.s[end..].to_owned();
             self.is_line_start = false;
